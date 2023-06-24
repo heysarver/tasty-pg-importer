@@ -37,7 +37,6 @@ def clean_data(headers, row, data_cleaning_dict):
 
 
 data_cleaning_dict = {
-    "Date": {"search": "T", "replace": " "},
     "Commissions": {"search": "--", "replace": "0"},
     "Value": {"default": "0"},
     "Quantity": {"default": "0"},
