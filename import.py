@@ -8,13 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 db_credentials = {
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "host": os.getenv("DB_HOST"),
-    "port": os.getenv("DB_PORT"),
+    "dbname": os.getenv("DB_NAME", "mydb"),
+    "user": os.getenv("DB_USER", "user"),
+    "password": os.getenv("DB_PASSWORD", "password"),
+    "host": os.getenv("DB_HOST", "postgres"),
+    "port": os.getenv("DB_PORT", "5432"),
 }
-db_table = os.getenv("DB_TABLE")
+db_table = os.getenv("DB_TABLE", "activity")
 csv_file_name = os.getenv("CSV_FILE_NAME") or (sys.argv[1] if len(sys.argv) > 1 else None)
 
 # Check if csv_file_name is not None
@@ -23,26 +23,34 @@ if csv_file_name is None:
 
 def clean_data(headers, row, data_cleaning_dict):
     for i, value in enumerate(row):
-        header = headers[i]
-        if header in data_cleaning_dict:
-            if value == data_cleaning_dict[header]["search"]:
-                row[i] = data_cleaning_dict[header]["replace"]
-            elif value == "" and "default" in data_cleaning_dict[header]:
-                row[i] = data_cleaning_dict[header]["default"]
+        if i < len(headers):
+            header = headers[i]
+            if header in data_cleaning_dict:
+                if "search" in data_cleaning_dict[header] and value == data_cleaning_dict[header]["search"]:
+                    row[i] = data_cleaning_dict[header]["replace"]
+                elif value == "" and "default" in data_cleaning_dict[header]:
+                    row[i] = data_cleaning_dict[header]["default"]
 
-        if header == "Date":
-            row.append(value[:10])
+            if header == "Date":
+                # Keep the full date-time string, including the time part
+                row.append(value)
+            else:
+                # Remove commas if the value is numeric
+                try:
+                    row[i] = float(value.replace(",", ""))
+                except ValueError:
+                    pass
 
     return row
 
 
 data_cleaning_dict = {
-    "Commissions": {"search": "--", "replace": "0"},
-    "Value": {"default": "0"},
-    "Quantity": {"default": "0"},
-    "Average Price": {"default": "0"},
-    "Fees": {"default": "0"},
-    "Multiplyer": {"default": "1"},
+    "Commissions": {"search": "--", "replace": "0", "default": "0"},
+    "Value": {"search": ",", "replace": "", "default": "0"},
+    "Quantity": {"search": ",", "replace": "", "default": "0"},
+    "Average Price": {"search": ",", "replace": "", "default": "0"},
+    "Fees": {"search": ",", "replace": "", "default": "0"},
+    "Multiplier": {"search": ",", "replace": "", "default": "1"},
 }
 
 try:
@@ -53,7 +61,7 @@ try:
             # Use SQL-identifier instead of string formatting
             create_table_query = sql.SQL("""
                 CREATE TABLE IF NOT EXISTS {} (
-                    date date,
+                    date text,
                     type text,
                     action text,
                     symbol text,
