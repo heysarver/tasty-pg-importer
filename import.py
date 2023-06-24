@@ -85,6 +85,20 @@ try:
 
             cursor.execute(create_table_query)
 
+            create_pl_view_query = sql.SQL("""
+                CREATE OR REPLACE VIEW daily_profit_loss_with_running_total AS
+                WITH profit_loss_by_day AS (
+                    SELECT trade_day, SUM(value) AS profit_loss, SUM(value+commissions+fees) AS profit_loss_fees
+                    FROM activity
+                    where description not like 'ACH%' and description not like '%mark to market%'
+                    GROUP BY trade_day
+                )
+                SELECT trade_day, profit_loss, profit_loss_fees, SUM(profit_loss) OVER (ORDER BY trade_day) AS running_total, SUM(profit_loss_fees) OVER (ORDER BY trade_day) AS running_total_fees
+                FROM profit_loss_by_day
+            """).format(sql.Identifier(db_table))
+
+            cursor.execute(create_pl_view_query)
+
             with open(csv_file_name, "r") as f:
                 reader = csv.reader(f)
                 headers = next(reader)
